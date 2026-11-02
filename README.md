@@ -92,7 +92,7 @@ bash scripts/build_mac.sh   # compile + installe
 ```
 
 ### Dans FL Studio
-*Options → Manage plugins → Find installed plugins*, puis cherche **Swell Reverse** (fabricant *SevY Audio*).
+*Options → Manage plugins → Find installed plugins*, puis cherche **Swell Reverse** (fabricant *Swell-audio*).
 
 ## Conseils d'utilisation
 - **Sur une piste** (vocal, snare, perc) : MIX à 50 %.

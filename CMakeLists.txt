@@ -23,7 +23,7 @@ if(APPLE)
 endif()
 
 juce_add_plugin(SwellVerb
-    COMPANY_NAME "SevY Audio"
+    COMPANY_NAME "Swell-audio"
     BUNDLE_ID com.sevyaudio.swell
     PLUGIN_MANUFACTURER_CODE Sevy
     PLUGIN_CODE Swl1
