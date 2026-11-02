@@ -1,4 +1,4 @@
-# SWELL — Reverse Reverb (VST3 / AU)  ·  v2.0
+# SWELL — Reverse Reverb (VST3 / AU)  ·  v2.1
 
 *by @sevyondatracks*
 
@@ -47,17 +47,17 @@ Le gate est calé sur le tempo et toujours **ouvert pile au transient**.
 
 1. **CAPTURE** : arme la capture, lance la lecture dans FL ; la capture démarre au premier son
    et s'arrête quand tu stoppes la lecture (ou re-clic sur STOP).
-   **ou** glisse un sample (WAV, AIFF, MP3, FLAC…) sur le plugin / bouton **CHARGER**.
+   **ou** glisse un sample (WAV, AIFF, MP3, FLAC…) sur le plugin / bouton **LOAD**.
 2. Swell détecte le transient et calcule le clip de reverse reverb (avec tes réglages, gate compris).
 3. **Glisse la tuile orange dans la playlist** de FL : la fin du clip = le transient.
    Place le clip juste avant ton son (en mode Sync, sa durée tombe pile sur la grille).
 
-**PLAY** pré-écoute le clip ; avec **+ SON ORIGINAL**, tu entends la montée suivie du son.
+**PLAY** pré-écoute le clip ; avec **+ ORIGINAL SOUND**, tu entends la montée suivie du son.
 
 Le clip se **met à jour tout seul** quand tu tournes un bouton (gate, length, tone…) :
 règle à l'oreille, puis glisse la tuile quand le son te plaît.
 
-Les clips sont aussi enregistrés dans *Musique/Swell Reverse* (bouton **DOSSIER**).
+Les clips sont aussi enregistrés dans *Musique/Swell Reverse* (bouton **FOLDER**).
 
 ## Presets
 

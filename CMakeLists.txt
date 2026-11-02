@@ -6,10 +6,14 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
 endif()
 
-project(SwellVerb VERSION 2.0.0)
+project(SwellVerb VERSION 2.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Windows : runtime C++ lié en statique, sinon crash au lancement sur les PC
+# qui ont un vieux Visual C++ Redistributable (MSVCP140.dll)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_subdirectory(JUCE)
 

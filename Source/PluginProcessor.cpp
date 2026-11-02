@@ -5,7 +5,7 @@
 namespace
 {
     // Divisions en temps (noires)
-    const juce::StringArray divisionNames { "1/16", "1/8", "1/4", "1/2", "1 mesure", "2 mesures" };
+    const juce::StringArray divisionNames { "1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars" };
     constexpr double divisionBeats[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
 
     const juce::StringArray gateNames { "Off", "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32" };
@@ -545,19 +545,19 @@ void SwellAudioProcessor::toggleCapture()
     {
         if (captureBuffer.getNumSamples() == 0)
         {
-            setRenderStatus (fr ("Lance la lecture une fois avant de capturer"), false);
+            setRenderStatus (fr ("Start playback once before capturing"), false);
             return;
         }
         captureStopRequest.store (false);
         captureDone.store (false);
         captureWrite.store (0);
         captureState.store ((int) CaptureState::armed, std::memory_order_release);
-        setRenderStatus (fr ("Capture armée : lance la lecture dans FL"), false);
+        setRenderStatus (fr ("Capture armed: start playback in your DAW"), false);
     }
     else if (state == CaptureState::armed)
     {
         captureState.store ((int) CaptureState::idle);
-        setRenderStatus (fr ("Capture annulée"), false);
+        setRenderStatus (fr ("Capture cancelled"), false);
     }
     else
     {
@@ -575,7 +575,7 @@ void SwellAudioProcessor::finishCapture()
     const int n = captureWrite.load();
     if (n < (int) (0.02 * currentSampleRate))
     {
-        setRenderStatus (fr ("Capture trop courte"), false);
+        setRenderStatus (fr ("Capture too short"), false);
         return;
     }
     juce::AudioBuffer<float> src (2, n);
@@ -591,7 +591,7 @@ void SwellAudioProcessor::renderFromFile (const juce::File& f)
     std::unique_ptr<juce::AudioFormatReader> reader (fm.createReaderFor (f));
     if (reader == nullptr)
     {
-        setRenderStatus (fr ("Format non reconnu : ") + f.getFileName(), false);
+        setRenderStatus (fr ("Unsupported format: ") + f.getFileName(), false);
         return;
     }
     const auto maxLen = (juce::int64) (maxCaptureSeconds * reader->sampleRate);
@@ -610,7 +610,7 @@ void SwellAudioProcessor::renderFromBuffer (const juce::AudioBuffer<float>& sour
         ? juce::String (juce::roundToInt (hostBpm.load())) + "bpm"
         : juce::String (settings.lengthSamples / sr, 2) + "s";
 
-    setRenderStatus (fr ("Rendu en cours…"), true);
+    setRenderStatus (fr ("Rendering…"), true);
 
     auto srcCopy = std::make_shared<juce::AudioBuffer<float>> (source);
     lastSource      = srcCopy;
@@ -655,13 +655,13 @@ void SwellAudioProcessor::renderFromBuffer (const juce::AudioBuffer<float>& sour
         {
             renderInfo.file = file;
             renderInfo.envelope = IRBuilder::envelope (res.clip, 160);
-            renderInfo.status = fr ("Transient à ") + juce::String (res.transientSample / sr, 2)
+            renderInfo.status = fr ("Transient at ") + juce::String (res.transientSample / sr, 2)
                               + fr (" s  |  clip ") + juce::String (res.clip.getNumSamples() / sr, 2)
-                              + fr (" s : glisse-le juste avant le son");
+                              + fr (" s: drop it right before the sound");
         }
         else
         {
-            renderInfo.status = fr ("Impossible d'écrire le fichier dans Musique/Swell Reverse");
+            renderInfo.status = fr ("Could not write the file to Music/Swell Reverse");
         }
         ++renderVersion;
     });

@@ -10,7 +10,8 @@ namespace SwellColours
     const juce::Colour panel    { 0xff1a1a1f };
     const juce::Colour track    { 0xff2c2c34 };
     const juce::Colour text     { 0xffeeebe6 };
-    const juce::Colour dim      { 0xff8a8791 };
+    const juce::Colour dim      { 0xffb4b2ba };   // assez clair pour rester lisible sur le fond noir
+    const juce::Colour label    { 0xffc8c6cd };
     const juce::Colour rec      { 0xffe5484d };
 
     juce::Colour accent();          // couleur choisie dans Settings
@@ -55,6 +56,17 @@ private:
     SwellAudioProcessor& proc;
     std::vector<float> env;
     float meterL = 0.0f, meterR = 0.0f;
+};
+
+// ============================================================ Bouton icône + nom en dessous (panneau Render)
+class IconButton : public juce::TextButton
+{
+public:
+    enum class Icon { record, load, play, folder };
+    IconButton (const juce::String& name, Icon i) : juce::TextButton (name), icon (i) {}
+    void paintButton (juce::Graphics&, bool highlighted, bool down) override;
+private:
+    Icon icon;
 };
 
 // ============================================================ Tuile du clip (glissable)
@@ -119,9 +131,9 @@ protected:
     void layoutContent (juce::Rectangle<int>) override;
 private:
     juce::OwnedArray<juce::TextButton> swatchButtons, scaleButtons;
-    juce::ToggleButton tooltipToggle { "INFOBULLES" };
-    juce::TextButton folderButton { "OUVRIR LE DOSSIER DES CLIPS" };
-    juce::TextButton presetFolderButton { "OUVRIR LE DOSSIER DES PRESETS" };
+    juce::ToggleButton tooltipToggle { "TOOLTIPS" };
+    juce::TextButton folderButton { "OPEN CLIPS FOLDER" };
+    juce::TextButton presetFolderButton { "OPEN PRESETS FOLDER" };
     juce::Rectangle<int> colourLabel, scaleLabel, otherLabel;
     juce::Colour currentAccent;
     float currentScale = 1.0f;
@@ -169,6 +181,7 @@ private:
     void savePresetDialog();
     void chooseFile();
     void applyAccent (juce::Colour c);
+    void styleBigKnobs();
 
     SwellAudioProcessor& proc;
     SwellLookAndFeel& lnf;
@@ -176,8 +189,10 @@ private:
     juce::Image logoS;
 
     Knob length, shape, tone, lowCut, width, gap, gateDepth, gateSmooth, mix, output;
-    std::array<Knob*, 10> knobs { &length, &shape, &tone, &lowCut, &width,
-                                  &gap, &gateDepth, &gateSmooth, &mix, &output };
+    // Les 3 réglages principaux en grand, les autres en petit en dessous
+    std::array<Knob*, 3> bigKnobs { &length, &shape, &mix };
+    std::array<Knob*, 7> smallKnobs { &tone, &lowCut, &width, &gap, &gateDepth, &gateSmooth, &output };
+    juce::Rectangle<int> knobDivider;
 
     // En-tête / barre d'outils
     juce::TextButton prevPreset { "<" }, nextPreset { ">" };
@@ -196,11 +211,11 @@ private:
     juce::Label infoLabel;
 
     // Panneau Render
-    juce::TextButton captureButton { "CAPTURE" };
-    juce::TextButton loadButton    { "CHARGER" };
-    juce::TextButton playButton    { "PLAY" };
-    juce::TextButton folderButton  { "DOSSIER" };
-    juce::ToggleButton withSourceButton { "+ SON ORIGINAL" };
+    IconButton captureButton { "CAPTURE", IconButton::Icon::record };
+    IconButton loadButton    { "LOAD",    IconButton::Icon::load };
+    IconButton playButton    { "PLAY",    IconButton::Icon::play };
+    IconButton folderButton  { "FOLDER",  IconButton::Icon::folder };
+    juce::ToggleButton withSourceButton { "+ ORIGINAL SOUND" };
     DragTile tile;
     juce::Label renderStatus;
     juce::Rectangle<int> renderPanelArea, footerArea;
@@ -210,6 +225,7 @@ private:
     std::unique_ptr<SettingsOverlay> settings;
 
     int lastDisplayVersion = -1, lastRenderVersion = -1, blink = 0;
+    bool snapshotChecked = false;
     juce::String lastPresetName;
     float meterL = 0.0f, meterR = 0.0f;
 

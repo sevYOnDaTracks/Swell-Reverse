@@ -24,7 +24,7 @@ namespace ParamID
 }
 
 #ifndef SWELL_VERSION
- #define SWELL_VERSION "2.0.0"
+ #define SWELL_VERSION "2.1.0"
 #endif
 
 class SwellAudioProcessor : public juce::AudioProcessor,

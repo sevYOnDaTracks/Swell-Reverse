@@ -18,9 +18,9 @@ void   SwellColours::setAccent (Colour c) { gAccent = c; }
 const std::vector<SwellColours::Swatch>& SwellColours::swatches()
 {
     static const std::vector<Swatch> s {
-        { "Orange",  0xffff7a3d }, { "Rouge",   0xffef4444 }, { "Rose",    0xffec4899 },
-        { "Violet",  0xff8b5cf6 }, { "Bleu",    0xff3b82f6 }, { "Cyan",    0xff22d3ee },
-        { "Vert",    0xff22c55e }, { "Or",      0xfff5b301 }, { "Blanc",   0xffe8e6e1 },
+        { "Orange",  0xffff7a3d }, { "Red",     0xffef4444 }, { "Pink",    0xffec4899 },
+        { "Purple",  0xff8b5cf6 }, { "Blue",    0xff3b82f6 }, { "Cyan",    0xff22d3ee },
+        { "Green",   0xff22c55e }, { "Gold",    0xfff5b301 }, { "White",   0xffe8e6e1 },
     };
     return s;
 }
@@ -116,12 +116,15 @@ void SwellLookAndFeel::drawToggleButton (Graphics& g, ToggleButton& b, bool high
 {
     auto r = b.getLocalBounds().toFloat().reduced (1.0f);
     const bool on = b.getToggleState();
-    const auto onColour = b.getProperties()["danger"] ? SwellColours::rec : SwellColours::accent();
-    g.setColour (on ? onColour : SwellColours::panel);
+    const bool danger = b.getProperties()["danger"];
+    // Allumé : contour + teinte de l'accent (l'orange plein est réservé à l'action principale) ; BYPASS reste plein rouge
+    const auto onColour = danger ? SwellColours::rec : SwellColours::accent();
+    g.setColour (on ? (danger ? onColour : SwellColours::panel.overlaidWith (onColour.withAlpha (0.16f)))
+                    : SwellColours::panel);
     g.fillRoundedRectangle (r, 6.0f);
     g.setColour (on ? onColour : (highlighted ? SwellColours::dim : SwellColours::track));
     g.drawRoundedRectangle (r, 6.0f, 1.2f);
-    g.setColour (on ? SwellColours::bg : SwellColours::text);
+    g.setColour (on ? (danger ? SwellColours::bg : onColour) : SwellColours::text);
     g.setFont (FontOptions (12.5f, Font::bold));
     g.drawText (b.getButtonText(), r, Justification::centred);
 }
@@ -186,6 +189,67 @@ void SwellLookAndFeel::drawTooltip (Graphics& g, const String& text, int w, int 
     TextLayout tl;
     tl.createLayoutWithBalancedLineLengths (s, 260.0f);
     tl.draw (g, r.reduced (10.0f, 7.0f));
+}
+
+// ============================================================ Bouton icône
+void IconButton::paintButton (Graphics& g, bool highlighted, bool down)
+{
+    const auto bg = findColour (TextButton::buttonColourId);
+    getLookAndFeel().drawButtonBackground (g, *this, bg, highlighted, down);
+
+    // Fond plein (capture en cours, lecture) : icône et texte en sombre
+    const bool filled = bg != SwellColours::panel;
+    const float alpha = isEnabled() ? 1.0f : 0.4f;
+    const auto ink = (filled ? SwellColours::bg : SwellColours::text).withMultipliedAlpha (alpha);
+
+    auto r = getLocalBounds().toFloat().reduced (4.0f, 6.0f);
+    auto labelArea = r.removeFromBottom (13.0f);
+    const auto box = r.withSizeKeepingCentre (22.0f, 22.0f);
+    const auto toBox = AffineTransform::scale (22.0f / 24.0f).translated (box.getX(), box.getY());
+    const PathStrokeType stroke (2.0f, PathStrokeType::curved, PathStrokeType::rounded);
+
+    switch (icon)
+    {
+        case Icon::record:
+            g.setColour (ink);
+            g.drawEllipse (box.reduced (2.0f), 2.0f);
+            g.setColour ((filled ? SwellColours::bg : SwellColours::accent()).withMultipliedAlpha (alpha));
+            g.fillEllipse (box.reduced (7.0f));
+            break;
+        case Icon::load:
+        {
+            auto p = Drawable::parseSVGPath ("M12 3v12M7 10l5 5 5-5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4");
+            p.applyTransform (toBox);
+            g.setColour (ink);
+            g.strokePath (p, stroke);
+            break;
+        }
+        case Icon::play:
+        {
+            g.setColour (ink);
+            if (getButtonText() == "STOP")
+                g.fillRoundedRectangle (box.reduced (5.0f), 2.0f);
+            else
+            {
+                auto p = Drawable::parseSVGPath ("M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z");
+                p.applyTransform (toBox);
+                g.fillPath (p);
+            }
+            break;
+        }
+        case Icon::folder:
+        {
+            auto p = Drawable::parseSVGPath ("M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z");
+            p.applyTransform (toBox);
+            g.setColour (ink);
+            g.strokePath (p, stroke);
+            break;
+        }
+    }
+
+    g.setColour (ink);
+    g.setFont (FontOptions (10.0f, Font::bold));
+    g.drawText (getButtonText(), labelArea, Justification::centred);
 }
 
 // ============================================================ Courbe temps réel + vumètre
@@ -284,7 +348,7 @@ void SwellDisplay::paint (Graphics& g)
     g.setFont (FontOptions (11.0f));
     g.setColour (SwellColours::dim);
     g.drawText ("TRANSIENT", Rectangle<float> (transientX - 40.0f, plot.getBottom() + 1.0f, 80.0f, 13.0f), Justification::centred);
-    g.drawText (fr ("MONTÉE"), Rectangle<float> (swellArea.getX(), plot.getBottom() + 1.0f, 80.0f, 13.0f), Justification::left);
+    g.drawText ("RISE", Rectangle<float> (swellArea.getX(), plot.getBottom() + 1.0f, 80.0f, 13.0f), Justification::left);
 }
 
 // ============================================================ Tuile glissable
@@ -337,27 +401,35 @@ void DragTile::paint (Graphics& g)
             {
                 g.setColour (SwellColours::text.withAlpha (0.8f));
                 g.setFont (FontOptions (11.0f, Font::bold));
-                g.drawText (fr ("SON ORIGINAL >"), inner.removeFromRight (120.0f).removeFromTop (14.0f), Justification::centredRight);
+                g.drawText ("ORIGINAL SOUND >", inner.removeFromRight (130.0f).removeFromTop (14.0f), Justification::centredRight);
             }
         }
 
-        g.setColour (SwellColours::text);
-        g.setFont (FontOptions (12.0f, Font::bold));
-        g.drawText ("GLISSE DANS LA PLAYLIST", label, Justification::centredLeft);
+        // Poignée orange : l'action principale du panneau, c'est de glisser le clip
+        auto pill = label.withWidth (138.0f).expanded (0.0f, 3.0f);
+        g.setColour (SwellColours::accent());
+        g.fillRoundedRectangle (pill, 5.0f);
+        g.setColour (SwellColours::bg);
+        for (int row = 0; row < 3; ++row)
+            for (int col = 0; col < 2; ++col)
+                g.fillEllipse (pill.getX() + 7.0f + (float) col * 4.5f, pill.getCentreY() - 6.0f + (float) row * 4.5f, 2.6f, 2.6f);
+        g.setFont (FontOptions (11.0f, Font::bold));
+        g.drawText ("DRAG TO PLAYLIST", pill.withTrimmedLeft (20.0f), Justification::centredLeft);
+
         g.setColour (SwellColours::dim);
         g.setFont (FontOptions (11.0f));
-        g.drawText (file.getFileName(), label.withTrimmedLeft (190.0f), Justification::centredRight);
+        g.drawText (file.getFileName(), label.withTrimmedLeft (150.0f), Justification::centredRight);
     }
     else
     {
         g.setColour (SwellColours::dim);
         g.setFont (FontOptions (13.0f));
-        g.drawFittedText (fr ("Glisse un sample ici, ou CAPTURE la piste\npuis glisse le clip rendu dans la playlist"),
+        g.drawFittedText ("Drop a sample here, or CAPTURE the track,\nthen drag the rendered clip into the playlist",
                           inner.withTrimmedBottom (-16.0f).toNearestInt(), Justification::centred, 2);
     }
 
-    g.setColour (highlight ? SwellColours::accent() : (hover ? SwellColours::accent2() : SwellColours::track));
-    g.drawRoundedRectangle (r, 8.0f, highlight ? 2.0f : 1.2f);
+    g.setColour (highlight || ready ? SwellColours::accent() : SwellColours::track);
+    g.drawRoundedRectangle (r, 8.0f, highlight || hover ? 2.4f : (ready ? 1.8f : 1.2f));
 }
 
 void DragTile::mouseDown (const MouseEvent&) { dragging = false; }
@@ -374,7 +446,7 @@ void DragTile::mouseDrag (const MouseEvent& e)
 OverlayPanel::OverlayPanel (const String& t) : title (t)
 {
     closeButton.onClick = [this] { if (onClose) onClose(); };
-    closeButton.setTooltip ("Fermer");
+    closeButton.setTooltip ("Close");
     addAndMakeVisible (closeButton);
     setWantsKeyboardFocus (true);
 }
@@ -409,7 +481,7 @@ void OverlayPanel::resized()
     layoutContent (content);
 }
 
-HelpOverlay::HelpOverlay() : OverlayPanel (fr ("AIDE  —  Comment utiliser SWELL"))
+HelpOverlay::HelpOverlay() : OverlayPanel (fr ("HELP  —  How to use SWELL"))
 {
     text.setMultiLine (true, true);
     text.setReadOnly (true);
@@ -420,51 +492,51 @@ HelpOverlay::HelpOverlay() : OverlayPanel (fr ("AIDE  —  Comment utiliser SWEL
     text.setFont (FontOptions (14.0f));
     text.setBorder (BorderSize<int> (12));
     const String help = (fr (
-        "LE PRINCIPE\n"
-        "Swell crée une reverb inversée : la reverb monte AVANT le son et s'arrête pile sur son transient "
-        "(l'attaque). Deux façons de l'utiliser :\n"
-        "  1. En temps réel sur une piste du mixer (FL compense la latence automatiquement).\n"
-        "  2. En mode RENDER : Swell fabrique un clip audio que tu glisses dans la playlist.\n\n"
+        "HOW IT WORKS\n"
+        "Swell creates a reverse reverb: the reverb rises BEFORE the sound and stops right on its transient "
+        "(the attack). Two ways to use it:\n"
+        "  1. In real time on a mixer track (your DAW compensates the latency automatically).\n"
+        "  2. In RENDER mode: Swell makes an audio clip that you drag into the playlist.\n\n"
 
-        "MODE RENDER → PLAYLIST (recommandé)\n"
-        "  1. CAPTURE puis lance la lecture : la capture démarre au premier son et s'arrête quand tu stoppes "
-        "(ou clique sur STOP).  Ou glisse un sample sur le plugin / bouton CHARGER.\n"
-        "  2. Swell détecte le transient et calcule le clip. Tourne les boutons : le clip se recalcule tout seul.\n"
-        "  3. PLAY pour pré-écouter. Avec « + SON ORIGINAL », tu entends la montée suivie du son.\n"
-        "  4. Glisse la tuile dans la playlist et place la FIN du clip juste au début de ton son.\n"
-        "     En mode SYNC, la durée du clip tombe pile sur la grille.\n"
-        "  DOSSIER ouvre le dossier où tous les clips sont enregistrés (Musique/Swell Reverse).\n\n"
+        "RENDER → PLAYLIST MODE (recommended)\n"
+        "  1. CAPTURE, then start playback: capture starts on the first sound and stops when you stop "
+        "playback (or click STOP).  Or drop a sample on the plugin / use LOAD.\n"
+        "  2. Swell detects the transient and builds the clip. Turn the knobs: the clip updates by itself.\n"
+        "  3. PLAY to preview. With \"+ ORIGINAL SOUND\" you hear the rise followed by the sound.\n"
+        "  4. Drag the tile into the playlist and place the END of the clip right at the start of your sound.\n"
+        "     In SYNC mode the clip length lands exactly on the grid.\n"
+        "  FOLDER opens the folder where every clip is saved (Music/Swell Reverse).\n\n"
 
-        "DURÉE DE LA MONTÉE\n"
-        "  SYNC + division : durée calée sur le tempo (1/16 à 2 mesures).\n"
-        "  LENGTH : durée libre en secondes (quand SYNC est coupé).\n\n"
+        "RISE LENGTH\n"
+        "  SYNC + division: length locked to the tempo (1/16 to 2 bars).\n"
+        "  LENGTH: free length in seconds (when SYNC is off).\n\n"
 
-        "COULEUR DU SON\n"
-        "  SHAPE : 0 % = montée longue et progressive, 100 % = montée tardive qui « aspire ».\n"
-        "  TONE : sombre ↔ brillant.\n"
-        "  LOW CUT : retire le grave de la reverb pour garder le mix propre.\n"
-        "  WIDTH : mono ↔ stéréo large.\n"
-        "  GAP : petit silence entre la fin de la montée et le transient.\n\n"
+        "SOUND\n"
+        "  SHAPE: 0 % = long, gradual rise, 100 % = late rise that \"sucks in\".\n"
+        "  TONE: dark ↔ bright.\n"
+        "  LOW CUT: removes the low end of the reverb to keep the mix clean.\n"
+        "  WIDTH: mono ↔ wide stereo.\n"
+        "  GAP: short silence between the end of the rise and the transient.\n\n"
 
-        "GATE (optionnel)\n"
-        "  GATE : hache la montée en rythme (1/4 à 1/32, triolets).  Off = montée continue.\n"
-        "  GATE DEPTH : intensité du hachage.\n"
-        "  GATE SMOOTH : 0 % = découpe sèche (stutter), 100 % = vague douce « wou-wou ».\n"
-        "  Le gate est toujours ouvert au moment du transient.\n\n"
+        "GATE (optional)\n"
+        "  GATE: chops the rise in rhythm (1/4 to 1/32, triplets).  Off = continuous rise.\n"
+        "  GATE DEPTH: how hard it chops.\n"
+        "  GATE SMOOTH: 0 % = hard cut (stutter), 100 % = soft \"wou-wou\" wave.\n"
+        "  The gate is always open at the transient.\n\n"
 
-        "SORTIE\n"
-        "  MIX : 0 % = son seul, 50 % = son + reverb à fond, 100 % = reverb seule (idéal en send).\n"
-        "  OUTPUT : volume de sortie.  BYPASS : coupe l'effet sans changer la latence.\n\n"
+        "OUTPUT\n"
+        "  MIX: 0 % = dry only, 50 % = dry + full reverb, 100 % = reverb only (great on a send).\n"
+        "  OUTPUT: output volume.  BYPASS: turns the effect off without changing the latency.\n\n"
 
         "PRESETS\n"
-        "  Menu en haut : presets d'usine et tes presets.  < > pour passer au suivant.\n"
-        "  SAVE enregistre tes réglages (Musique/Swell Reverse/Presets).\n\n"
+        "  Top menu: factory presets and your presets.  < > to step through them.\n"
+        "  SAVE stores your settings (Music/Swell Reverse/Presets).\n\n"
 
-        "ASTUCES\n"
-        "  • Double-clic sur un bouton = valeur par défaut.  Cmd + glisser = réglage fin.\n"
-        "  • Survole un élément pour voir son infobulle (activable dans SETTINGS).\n"
-        "  • En temps réel, si tu changes la durée ou le tempo, relance la lecture pour que FL se recale.\n"
-        "  • SETTINGS : couleur de l'interface, taille de la fenêtre, infobulles.\n"));
+        "TIPS\n"
+        "  • Double-click a knob = default value.  Cmd + drag = fine adjustment.\n"
+        "  • Hover any element to see its tooltip (can be turned off in SETTINGS).\n"
+        "  • In real time, if you change the length or the tempo, restart playback so your DAW realigns.\n"
+        "  • SETTINGS: interface colour, window size, tooltips.\n"));
 
     // Titres en gras et en couleur, texte normal ensuite
     for (auto& line : StringArray::fromLines (help))
@@ -565,9 +637,9 @@ void SettingsOverlay::paint (Graphics& g)
     OverlayPanel::paint (g);
     g.setColour (SwellColours::dim);
     g.setFont (FontOptions (12.0f, Font::bold));
-    g.drawText (fr ("COULEUR DE L'INTERFACE"), colourLabel, Justification::centredLeft);
-    g.drawText (fr ("TAILLE DE LA FENÊTRE"), scaleLabel, Justification::centredLeft);
-    g.drawText ("AUTRES", otherLabel, Justification::centredLeft);
+    g.drawText ("INTERFACE COLOUR", colourLabel, Justification::centredLeft);
+    g.drawText ("WINDOW SIZE", scaleLabel, Justification::centredLeft);
+    g.drawText ("OTHER", otherLabel, Justification::centredLeft);
 
     // repère sur la couleur et la taille actives
     for (auto* b : swatchButtons)
@@ -598,20 +670,20 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
 
     addAndMakeVisible (display);
 
-    setupKnob (length,     ParamID::length,     "LENGTH",      fr ("Durée libre de la montée (quand SYNC est coupé)."));
-    setupKnob (shape,      ParamID::shape,      "SHAPE",       fr ("Forme de la montée : progressive (bas) ou tardive qui aspire (haut)."));
-    setupKnob (tone,       ParamID::tone,       "TONE",        fr ("Couleur de la reverb : sombre ↔ brillante."));
-    setupKnob (lowCut,     ParamID::lowCut,     "LOW CUT",     fr ("Retire le grave de la reverb pour garder le mix propre."));
-    setupKnob (width,      ParamID::width,      "WIDTH",       fr ("Largeur stéréo de la reverb."));
-    setupKnob (gap,        ParamID::gap,        "GAP",         fr ("Silence entre la fin de la montée et le transient."));
-    setupKnob (gateDepth,  ParamID::gateDepth,  "GATE DEPTH",  fr ("Intensité du gate (nécessite GATE activé)."));
-    setupKnob (gateSmooth, ParamID::gateSmooth, "GATE SMOOTH", fr ("0 % = découpe sèche, 100 % = vague douce « wou-wou »."));
-    setupKnob (mix,        ParamID::mix,        "MIX",         fr ("0 % = son seul, 50 % = son + reverb, 100 % = reverb seule."));
-    setupKnob (output,     ParamID::output,     "OUTPUT",      fr ("Volume de sortie (s'applique aussi aux clips rendus)."));
+    setupKnob (length,     ParamID::length,     "LENGTH",      "Free rise length (when SYNC is off).");
+    setupKnob (shape,      ParamID::shape,      "SHAPE",       "Rise shape: gradual (low) or a late rise that sucks in (high).");
+    setupKnob (tone,       ParamID::tone,       "TONE",        fr ("Reverb colour: dark ↔ bright."));
+    setupKnob (lowCut,     ParamID::lowCut,     "LOW CUT",     "Removes the low end of the reverb to keep the mix clean.");
+    setupKnob (width,      ParamID::width,      "WIDTH",       "Stereo width of the reverb.");
+    setupKnob (gap,        ParamID::gap,        "GAP",         "Silence between the end of the rise and the transient.");
+    setupKnob (gateDepth,  ParamID::gateDepth,  "GATE DEPTH",  "Gate intensity (needs GATE on).");
+    setupKnob (gateSmooth, ParamID::gateSmooth, "GATE SMOOTH", "0 % = hard cut, 100 % = soft \"wou-wou\" wave.");
+    setupKnob (mix,        ParamID::mix,        "MIX",         "0 % = dry only, 50 % = dry + reverb, 100 % = reverb only.");
+    setupKnob (output,     ParamID::output,     "OUTPUT",      "Output volume (also applied to rendered clips).");
 
     // Presets
     presetBox.setTextWhenNothingSelected ("Presets");
-    presetBox.setTooltip (fr ("Presets d'usine et tes presets."));
+    presetBox.setTooltip ("Factory presets and your presets.");
     presetBox.onChange = [this]
     {
         const int id = presetBox.getSelectedId();
@@ -623,20 +695,20 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
     addAndMakeVisible (presetBox);
     prevPreset.onClick = [this] { stepPreset (-1); };
     nextPreset.onClick = [this] { stepPreset (+1); };
-    prevPreset.setTooltip (fr ("Preset précédent"));
-    nextPreset.setTooltip ("Preset suivant");
+    prevPreset.setTooltip ("Previous preset");
+    nextPreset.setTooltip ("Next preset");
     addAndMakeVisible (prevPreset);
     addAndMakeVisible (nextPreset);
     saveButton.onClick = [this] { savePresetDialog(); };
-    saveButton.setTooltip ("Sauvegarder les réglages actuels comme preset.");
+    saveButton.setTooltip ("Save the current settings as a preset.");
     addAndMakeVisible (saveButton);
     refreshPresetList();
 
     helpButton.onClick = [this] { showHelp(); };
-    helpButton.setTooltip (fr ("Aide : à quoi sert chaque élément."));
+    helpButton.setTooltip ("Help: what every control does.");
     addAndMakeVisible (helpButton);
     settingsButton.onClick = [this] { showSettings(); };
-    settingsButton.setTooltip (fr ("Couleur, taille de la fenêtre, infobulles."));
+    settingsButton.setTooltip ("Colour, window size, tooltips.");
     addAndMakeVisible (settingsButton);
 
     // Gate
@@ -647,19 +719,19 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
     if (auto* choice = dynamic_cast<AudioParameterChoice*> (p.apvts.getParameter (ParamID::gate)))
         gateBox.addItemList (choice->choices, 1);
     gateBox.setJustificationType (Justification::centred);
-    gateBox.setTooltip (fr ("Gate rythmique sur la montée (Off = montée continue)."));
+    gateBox.setTooltip ("Rhythmic gate on the rise (Off = continuous rise).");
     addAndMakeVisible (gateBox);
     gateAttachment = std::make_unique<AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, ParamID::gate, gateBox);
     gateBox.onChange = [this] { updateEnablement(); display.repaint(); };
 
     // Bypass
     bypassButton.getProperties().set ("danger", true);
-    bypassButton.setTooltip (fr ("Coupe l'effet (la latence reste identique)."));
+    bypassButton.setTooltip ("Turns the effect off (latency stays the same).");
     addAndMakeVisible (bypassButton);
     bypassAttachment = std::make_unique<AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, ParamID::bypass, bypassButton);
 
     // Sync
-    syncButton.setTooltip (fr ("Durée de la montée calée sur le tempo de FL."));
+    syncButton.setTooltip ("Rise length locked to your DAW tempo.");
     addAndMakeVisible (syncButton);
     syncAttachment = std::make_unique<AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, ParamID::sync, syncButton);
     syncButton.onStateChange = [this] { updateEnablement(); };
@@ -667,7 +739,7 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
     if (auto* choice = dynamic_cast<AudioParameterChoice*> (p.apvts.getParameter (ParamID::division)))
         divisionBox.addItemList (choice->choices, 1);
     divisionBox.setJustificationType (Justification::centred);
-    divisionBox.setTooltip (fr ("Durée de la montée en valeur rythmique."));
+    divisionBox.setTooltip ("Rise length as a note value.");
     addAndMakeVisible (divisionBox);
     divisionAttachment = std::make_unique<AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, ParamID::division, divisionBox);
 
@@ -677,28 +749,31 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
 
     // Render
     captureButton.onClick = [this] { proc.toggleCapture(); };
-    captureButton.setTooltip (fr ("Arme la capture puis lance la lecture : enregistre le son qui entre dans Swell."));
+    captureButton.setTooltip ("Arm the capture, then start playback: records the sound coming into Swell.");
     loadButton.onClick = [this] { chooseFile(); };
-    loadButton.setTooltip (fr ("Charger un sample (ou glisse-le directement sur le plugin)."));
+    loadButton.setTooltip ("Load a sample (or drop it straight onto the plugin).");
     playButton.onClick = [this] { proc.togglePreview(); };
-    playButton.setTooltip (fr ("Pré-écouter le clip rendu."));
+    playButton.setTooltip ("Preview the rendered clip.");
     folderButton.onClick = []
     {
         auto f = SwellAudioProcessor::getRenderFolder();
         f.createDirectory();
         f.revealToUser();
     };
-    folderButton.setTooltip (fr ("Ouvre le dossier où les clips sont enregistrés."));
+    folderButton.setTooltip ("Opens the folder where clips are saved.");
     withSourceButton.setToggleState (proc.getPreviewWithSource(), dontSendNotification);
     withSourceButton.onClick = [this] { proc.setPreviewWithSource (withSourceButton.getToggleState()); };
-    withSourceButton.setTooltip (fr ("Pré-écoute : enchaîne le son original après la montée."));
+    withSourceButton.setTooltip ("Preview: plays the original sound right after the rise.");
     for (auto* c : std::initializer_list<Component*> { &captureButton, &loadButton, &playButton, &folderButton, &withSourceButton, &tile })
         addAndMakeVisible (c);
-    tile.setTooltip (fr ("Glisse cette tuile dans la playlist de FL Studio."));
+    tile.setTooltip ("Drag this tile into your DAW playlist.");
     renderStatus.setFont (FontOptions (12.0f));
     renderStatus.setJustificationType (Justification::centredLeft);
     addAndMakeVisible (renderStatus);
 
+    styleBigKnobs();
+    infoLabel.setColour (Label::textColourId, SwellColours::label);
+    renderStatus.setColour (Label::textColourId, SwellColours::label);
     updateEnablement();
     display.refresh();
     setSize (designW, designH);
@@ -722,13 +797,27 @@ void SwellMainView::setupKnob (Knob& k, const String& paramId, const String& nam
 
     k.label.setText (name, dontSendNotification);
     k.label.setJustificationType (Justification::centred);
-    k.label.setFont (FontOptions (11.5f, Font::bold));
+    k.label.setFont (FontOptions (10.5f, Font::bold));
+    k.label.setColour (Label::textColourId, SwellColours::label);
+    k.label.setMinimumHorizontalScale (1.0f);
     addAndMakeVisible (k.label);
 
     k.attachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, paramId, k.slider);
     if (auto* param = proc.apvts.getParameter (paramId))
         k.slider.setDoubleClickReturnValue (true, param->convertFrom0to1 (param->getDefaultValue()));
     k.slider.onValueChange = [this] { display.repaint(); };
+}
+
+// Les 3 grands boutons : titre plus gros en blanc, valeur en couleur d'accent
+void SwellMainView::styleBigKnobs()
+{
+    for (auto* k : bigKnobs)
+    {
+        k->label.setFont (FontOptions (13.0f, Font::bold));
+        k->label.setColour (Label::textColourId, SwellColours::text);
+        k->slider.setTextBoxStyle (Slider::TextBoxBelow, false, 130, 22);
+        k->slider.setColour (Slider::textBoxTextColourId, SwellColours::accent());
+    }
 }
 
 void SwellMainView::updateEnablement()
@@ -749,7 +838,7 @@ void SwellMainView::updateEnablement()
 void SwellMainView::refreshPresetList()
 {
     presetBox.clear (dontSendNotification);
-    presetBox.addSectionHeading ("USINE");
+    presetBox.addSectionHeading ("FACTORY");
     auto factory = proc.getFactoryPresetNames();
     for (int i = 0; i < factory.size(); ++i)
         presetBox.addItem (factory[i], i + 1);
@@ -758,7 +847,7 @@ void SwellMainView::refreshPresetList()
     if (! user.isEmpty())
     {
         presetBox.addSeparator();
-        presetBox.addSectionHeading ("MES PRESETS");
+        presetBox.addSectionHeading ("MY PRESETS");
         for (int i = 0; i < user.size(); ++i)
             presetBox.addItem (user[i], 1000 + i);
     }
@@ -777,11 +866,11 @@ void SwellMainView::stepPreset (int delta)
 
 void SwellMainView::savePresetDialog()
 {
-    auto* w = new AlertWindow (fr ("Sauvegarder le preset"), fr ("Nom du preset :"), MessageBoxIconType::NoIcon, this);
+    auto* w = new AlertWindow ("Save preset", "Preset name:", MessageBoxIconType::NoIcon, this);
     w->setLookAndFeel (&lnf);
     w->addTextEditor ("name", proc.getCurrentPresetName() == "Init" ? String() : proc.getCurrentPresetName());
-    w->addButton ("SAUVER", 1, KeyPress (KeyPress::returnKey));
-    w->addButton ("ANNULER", 0, KeyPress (KeyPress::escapeKey));
+    w->addButton ("SAVE", 1, KeyPress (KeyPress::returnKey));
+    w->addButton ("CANCEL", 0, KeyPress (KeyPress::escapeKey));
 
     Component::SafePointer<SwellMainView> safe (this);
     w->enterModalState (true, ModalCallbackFunction::create ([safe, w] (int result)
@@ -795,7 +884,7 @@ void SwellMainView::savePresetDialog()
 
 void SwellMainView::chooseFile()
 {
-    chooser = std::make_unique<FileChooser> (fr ("Choisis un sample"), File(), "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.m4a;*.ogg");
+    chooser = std::make_unique<FileChooser> ("Choose a sample", File(), "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.m4a;*.ogg");
     chooser->launchAsync (FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles,
                           [this] (const FileChooser& fc)
                           {
@@ -808,7 +897,7 @@ void SwellMainView::chooseFile()
 void SwellMainView::showHelp()
 {
     help = std::make_unique<HelpOverlay>();
-    help->onClose = [this] { MessageManager::callAsync ([sp = Component::SafePointer<SwellMainView> (this)] { if (sp) sp->help.reset(); }); };
+    help->onClose = [this] { Component::SafePointer<SwellMainView> sp (this); MessageManager::callAsync ([sp] { if (sp) sp->help.reset(); }); };
     addAndMakeVisible (*help);
     help->setBounds (getLocalBounds());
 }
@@ -821,7 +910,7 @@ void SwellMainView::showSettings()
     settings->onAccent   = [this] (Colour c) { applyAccent (c); };
     settings->onScale    = [this] (float s) { if (onScaleChange) onScaleChange (s); };
     settings->onTooltips = [this] (bool b) { if (onTooltipsChange) onTooltipsChange (b); };
-    settings->onClose = [this] { MessageManager::callAsync ([sp = Component::SafePointer<SwellMainView> (this)] { if (sp) sp->settings.reset(); }); };
+    settings->onClose = [this] { Component::SafePointer<SwellMainView> sp (this); MessageManager::callAsync ([sp] { if (sp) sp->settings.reset(); }); };
     addAndMakeVisible (*settings);
     settings->setBounds (getLocalBounds());
 }
@@ -831,6 +920,7 @@ void SwellMainView::applyAccent (Colour c)
     SwellColours::setAccent (c);
     SwellSettings::file().setValue ("accent", c.toString());
     lnf.refreshColours();
+    styleBigKnobs();
     // force la mise à jour de tous les composants
     std::function<void (Component&)> refresh = [&] (Component& comp)
     {
@@ -864,6 +954,36 @@ void SwellMainView::filesDropped (const StringArray& files, int, int)
 
 void SwellMainView::timerCallback()
 {
+    // Outil de dev pour les captures du README :
+    // SWELL_SNAPSHOT=<fichier.png> [SWELL_SNAPSHOT_SAMPLE=<son>] [SWELL_SNAPSHOT_OVERLAY=help|settings]
+    if (! snapshotChecked)
+    {
+        snapshotChecked = true;
+        const auto out = SystemStats::getEnvironmentVariable ("SWELL_SNAPSHOT", {});
+        if (out.isNotEmpty())
+        {
+            const auto sample = SystemStats::getEnvironmentVariable ("SWELL_SNAPSHOT_SAMPLE", {});
+            if (sample.isNotEmpty())
+                proc.renderFromFile (File (sample));
+            const auto overlay = SystemStats::getEnvironmentVariable ("SWELL_SNAPSHOT_OVERLAY", {});
+            if (overlay == "help")     showHelp();
+            if (overlay == "settings") showSettings();
+            Timer::callAfterDelay (3000, [sp = Component::SafePointer<SwellMainView> (this), out]
+            {
+                if (sp == nullptr) return;
+                FileOutputStream stream { File (out) };
+                if (stream.openedOk())
+                {
+                    stream.setPosition (0);
+                    stream.truncate();
+                    PNGImageFormat().writeImageToStream (sp->createComponentSnapshot (sp->getLocalBounds(), true, 2.0f), stream);
+                }
+                if (auto* app = JUCEApplicationBase::getInstance())
+                    app->systemRequestedQuit();
+            });
+        }
+    }
+
     if (const int v = proc.getDisplayVersion(); v != lastDisplayVersion)
     {
         lastDisplayVersion = v;
@@ -906,12 +1026,12 @@ void SwellMainView::timerCallback()
             captureButton.setColour (TextButton::buttonColourId, SwellColours::panel);
             break;
         case SwellAudioProcessor::CaptureState::armed:
-            captureButton.setButtonText (fr ("ARMÉ…"));
+            captureButton.setButtonText (fr ("ARMED…"));
             captureButton.setColour (TextButton::buttonColourId,
                                      (blink / 10) % 2 ? SwellColours::rec.withAlpha (0.6f) : SwellColours::panel);
             break;
         case SwellAudioProcessor::CaptureState::recording:
-            captureButton.setButtonText ("STOP  " + String (proc.getCaptureSeconds(), 1) + " s");
+            captureButton.setButtonText ("STOP " + String (proc.getCaptureSeconds(), 1) + "s");
             captureButton.setColour (TextButton::buttonColourId, SwellColours::rec);
             break;
     }
@@ -919,10 +1039,10 @@ void SwellMainView::timerCallback()
     if (blink % 6 == 0)
     {
         String info;
-        info << fr ("Montée ") << String (proc.getLengthSeconds(), 2) << " s";
+        info << "Rise " << String (proc.getLengthSeconds(), 2) << " s";
         if (syncButton.getToggleState() || gateBox.getSelectedItemIndex() > 0)
             info << "  |  " << String (proc.getHostBpm(), 1) << " BPM";
-        info << "  |  Latence " << String (roundToInt (proc.getLatencyMs())) << " ms";
+        info << "  |  Latency " << String (roundToInt (proc.getLatencyMs())) << " ms";
         infoLabel.setText (info, dontSendNotification);
     }
 }
@@ -957,19 +1077,33 @@ void SwellMainView::paint (Graphics& g)
         g.drawText (fr ("RENDER  →  PLAYLIST"), renderPanelArea.reduced (14, 8).removeFromTop (16), Justification::centredLeft);
     }
 
-    // Pied de page : version + by @sevyondatracks + logo (en bas à droite)
+    // Séparation entre les grands boutons et les petits
+    if (! knobDivider.isEmpty())
+    {
+        g.setColour (SwellColours::track.withAlpha (0.7f));
+        g.drawHorizontalLine (knobDivider.getCentreY(), (float) knobDivider.getX(), (float) knobDivider.getRight());
+    }
+
+    // Pied de page : nom + version à gauche, by @sevyondatracks + logo à droite
     if (! footerArea.isEmpty())
     {
         auto f = footerArea;
-        if (logoS.isValid())
-        {
-            g.setOpacity (0.9f);
-            g.drawImage (logoS, f.removeFromRight (22).withSizeKeepingCentre (18, 16).toFloat(), RectanglePlacement::centred);
-            f.removeFromRight (6);
-        }
+        g.setColour (SwellColours::track.withAlpha (0.7f));
+        g.drawHorizontalLine (f.getY() + 2, (float) f.getX(), (float) f.getRight());
+        f.removeFromTop (4);
+
         g.setColour (SwellColours::dim);
         g.setFont (FontOptions (12.0f));
-        g.drawText ("v" + String (SWELL_VERSION) + "   |   by @sevyondatracks", f, Justification::centredRight);
+        g.drawText (fr ("SWELL Reverse Reverb  ·  v") + String (SWELL_VERSION), f, Justification::centredLeft);
+
+        if (logoS.isValid())
+        {
+            g.setOpacity (0.95f);
+            g.drawImage (logoS, f.removeFromRight (26).withSizeKeepingCentre (22, 20).toFloat(), RectanglePlacement::centred);
+            f.removeFromRight (8);
+        }
+        g.setColour (SwellColours::dim);
+        g.drawText ("by @sevyondatracks", f, Justification::centredRight);
     }
 }
 
@@ -1009,7 +1143,7 @@ void SwellMainView::resized()
     infoLabel.setBounds (area.removeFromTop (22).withTrimmedRight (4));
 
     // Pied de page et panneau Render (depuis le bas)
-    footerArea = area.removeFromBottom (30).withTrimmedRight (16);
+    footerArea = area.removeFromBottom (32);
     renderPanelArea = area.removeFromBottom (176);
     area.removeFromBottom (10);
 
@@ -1018,34 +1152,39 @@ void SwellMainView::resized()
         rp.removeFromTop (22);
         renderStatus.setBounds (rp.removeFromBottom (20));
         rp.removeFromBottom (4);
-        auto col = rp.removeFromLeft (220);
-        const int bh = (col.getHeight() - 12) / 3;
-        auto r1 = col.removeFromTop (bh); col.removeFromTop (6);
-        auto r2 = col.removeFromTop (bh); col.removeFromTop (6);
-        auto r3 = col.removeFromTop (bh);
-        captureButton.setBounds (r1.removeFromLeft (107)); r1.removeFromLeft (6); loadButton.setBounds (r1);
-        playButton.setBounds (r2.removeFromLeft (107));    r2.removeFromLeft (6); folderButton.setBounds (r2);
-        withSourceButton.setBounds (r3);
+        auto col = rp.removeFromLeft (248);
+        // 4 boutons icône sur une ligne, + ORIGINAL SOUND en dessous
+        withSourceButton.setBounds (col.removeFromBottom (30));
+        col.removeFromBottom (6);
+        const int bw = (col.getWidth() - 18) / 4;
+        for (auto* b : { &captureButton, &loadButton, &playButton, &folderButton })
+        {
+            b->setBounds (col.removeFromLeft (bw));
+            col.removeFromLeft (6);
+        }
         rp.removeFromLeft (12);
         tile.setBounds (rp);
     }
 
-    // 2 rangées de 5 boutons
-    const int rowH = (area.getHeight() - 8) / 2;
-    auto row1 = area.removeFromTop (rowH);
-    area.removeFromTop (8);
-    auto row2 = area.removeFromTop (rowH);
-    const int cw = row1.getWidth() / 5;
+    // Les 3 réglages principaux en grand...
+    auto smallRow = area.removeFromBottom (92);
+    knobDivider = area.removeFromBottom (10).reduced (10, 0);
+    auto bigRow = area.withSizeKeepingCentre (600, area.getHeight());
+    const int bw = bigRow.getWidth() / 3;
+    for (auto* k : bigKnobs)
+    {
+        auto cell = bigRow.removeFromLeft (bw);
+        k->label.setBounds (cell.removeFromTop (18));
+        k->slider.setBounds (cell.withSizeKeepingCentre (jmin (cell.getHeight() - 22, bw), cell.getHeight()).reduced (0, 2));
+    }
 
-    auto place = [] (Knob& k, Rectangle<int> cell)
+    // ...et les 7 autres en petit en dessous
+    const int sw = smallRow.getWidth() / 7;
+    for (auto* k : smallKnobs)
     {
-        k.label.setBounds (cell.removeFromTop (16));
-        k.slider.setBounds (cell.reduced (10, 0));
-    };
-    for (int i = 0; i < 5; ++i)
-    {
-        place (*knobs[(size_t) i],     row1.removeFromLeft (cw));
-        place (*knobs[(size_t) i + 5], row2.removeFromLeft (cw));
+        auto cell = smallRow.removeFromLeft (sw);
+        k->label.setBounds (cell.removeFromTop (14));
+        k->slider.setBounds (cell.reduced (8, 0));
     }
 
     if (help != nullptr)     help->setBounds (getLocalBounds());
