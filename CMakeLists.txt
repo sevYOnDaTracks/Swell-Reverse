@@ -16,6 +16,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_subdirectory(JUCE)
+include(FetchContent)
+# Monocypher (BSD-2 / CC0) : vérification Ed25519 des fichiers de licence.
+# Pas de CMakeLists chez Monocypher : SOURCE_SUBDIR inexistant = télécharger seulement, la cible est déclarée ici.
+FetchContent_Declare(monocypher GIT_REPOSITORY https://github.com/LoupVaillant/Monocypher.git GIT_TAG 4.0.3 GIT_SHALLOW TRUE SOURCE_SUBDIR none)
+FetchContent_MakeAvailable(monocypher)
+add_library(monocypher STATIC "${monocypher_SOURCE_DIR}/src/monocypher.c" "${monocypher_SOURCE_DIR}/src/optional/monocypher-ed25519.c")
+target_include_directories(monocypher PUBLIC "${monocypher_SOURCE_DIR}/src" "${monocypher_SOURCE_DIR}/src/optional")
+set_target_properties(monocypher PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 set(SWELL_FORMATS VST3 Standalone)
 if(APPLE)
@@ -55,10 +63,10 @@ set(SWELL_DEFS
     JUCE_VST3_CAN_REPLACE_VST2=0
     SWELL_VERSION="${PROJECT_VERSION}")
 
-target_sources(SwellVerb PRIVATE ${SWELL_SOURCES})
+target_sources(SwellVerb PRIVATE ${SWELL_SOURCES} Source/Licence/SwellLicence.cpp)
 target_compile_definitions(SwellVerb PUBLIC ${SWELL_DEFS})
 target_link_libraries(SwellVerb
-    PRIVATE
+    PRIVATE monocypher juce::juce_cryptography
         juce::juce_audio_utils
         juce::juce_dsp
         SwellAssets

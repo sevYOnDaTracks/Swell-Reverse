@@ -266,7 +266,7 @@ void SwellAudioProcessor::forceRebuild()
 }
 
 void SwellAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
-{
+{ if (! licence->isUnlocked()) { buffer.clear(); return; } 
     juce::ScopedNoDenormals noDenormals;
 
     // Tempo et état de lecture de l'hôte
@@ -795,7 +795,7 @@ void SwellAudioProcessor::setStateInformation (const void* data, int sizeInBytes
 
 juce::AudioProcessorEditor* SwellAudioProcessor::createEditor()
 {
-    return new SwellAudioProcessorEditor (*this);
+    return swell::LicenceGuard::attach (new SwellAudioProcessorEditor (*this));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

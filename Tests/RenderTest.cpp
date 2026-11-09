@@ -86,6 +86,7 @@ static void writeWav (const File& f, const AudioBuffer<float>& b, double sr)
 
 int main (int argc, char** argv)
 {
+    swell::Licence::unlockForTesting(); // rendu hors ligne, sans fichier de licence
     ScopedJuceInitialiser_GUI init;
     const File outDir (argc > 1 ? String (argv[1]) : File::getCurrentWorkingDirectory().getFullPathName());
     const double sr = 48000.0;

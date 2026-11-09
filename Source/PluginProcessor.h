@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "Licence/SwellLicence.h"
 #include <juce_dsp/juce_dsp.h>
 #include "IRBuilder.h"
 #include "SwellRenderer.h"
@@ -30,6 +31,10 @@ namespace ParamID
 class SwellAudioProcessor : public juce::AudioProcessor,
                             private juce::Timer
 {
+public:
+    // Licence Swell : partagée par toutes les instances ; silence tant que le plugin n'est pas activé.
+    juce::SharedResourcePointer<swell::Licence> licence;
+
 public:
     SwellAudioProcessor();
     ~SwellAudioProcessor() override;
