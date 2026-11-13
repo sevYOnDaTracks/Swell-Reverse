@@ -65,8 +65,11 @@ public:
     enum class Icon { record, load, play, folder };
     IconButton (const juce::String& name, Icon i) : juce::TextButton (name), icon (i) {}
     void paintButton (juce::Graphics&, bool highlighted, bool down) override;
+    void setCompact (bool c) { compact = c; repaint(); }   // icône seule (le nom est dans l'infobulle)
+    void setActive (bool a)  { if (a != active) { active = a; repaint(); } }  // contour + icône en couleur d'accent
 private:
     Icon icon;
+    bool compact = false, active = false;
 };
 
 // ============================================================ Tuile du clip (glissable)
@@ -127,6 +130,7 @@ public:
     std::function<void (float)> onScale;
     std::function<void (bool)> onTooltips;
     void setCurrent (juce::Colour accent, float scale, bool tooltips);
+    void setInfo (const juce::String& s) { info = s; repaint(); }   // latence, durée, tempo
 protected:
     void layoutContent (juce::Rectangle<int>) override;
 private:
@@ -137,6 +141,7 @@ private:
     juce::Rectangle<int> colourLabel, scaleLabel, otherLabel;
     juce::Colour currentAccent;
     float currentScale = 1.0f;
+    juce::String info;
 };
 
 // ============================================================ Vue principale (taille de référence 720x740)
@@ -182,17 +187,22 @@ private:
     void chooseFile();
     void applyAccent (juce::Colour c);
     void styleBigKnobs();
+    void setAdvancedOpen (bool open);
+    void layoutSmallRow();
 
     SwellAudioProcessor& proc;
     SwellLookAndFeel& lnf;
     SwellDisplay display;
     juce::Image logoS;
 
-    Knob length, shape, tone, lowCut, width, gap, gateDepth, gateSmooth, mix, output;
-    // Les 3 réglages principaux en grand, les autres en petit en dessous
+    Knob length, division, shape, tone, lowCut, width, gap, gateDepth, gateSmooth, mix, output;
+    // Les 3 réglages principaux en grand (LENGTH devient la division quand SYNC est actif)...
     std::array<Knob*, 3> bigKnobs { &length, &shape, &mix };
-    std::array<Knob*, 7> smallKnobs { &tone, &lowCut, &width, &gap, &gateDepth, &gateSmooth, &output };
-    juce::Rectangle<int> knobDivider;
+    // ...4 réglages de son en petit en dessous, et la rangée ADVANCED (Gap + Gate) à la place quand on l'ouvre
+    std::array<Knob*, 4> soundKnobs { &tone, &lowCut, &width, &output };
+    juce::Rectangle<int> knobDivider, smallRowArea, gateHintArea;
+    juce::ToggleButton advancedButton { "ADVANCED" };
+    bool advancedOpen = false;
 
     // En-tête / barre d'outils
     juce::TextButton prevPreset { "<" }, nextPreset { ">" };
@@ -204,11 +214,8 @@ private:
     juce::ComboBox gateBox;
     juce::ToggleButton bypassButton { "BYPASS" };
     juce::ToggleButton syncButton { "SYNC" };
-    juce::ComboBox divisionBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   syncAttachment, bypassAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> divisionAttachment, gateAttachment;
-
-    juce::Label infoLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> gateAttachment;
 
     // Panneau Render
     IconButton captureButton { "CAPTURE", IconButton::Icon::record };

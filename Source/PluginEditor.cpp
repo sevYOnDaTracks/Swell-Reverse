@@ -117,15 +117,36 @@ void SwellLookAndFeel::drawToggleButton (Graphics& g, ToggleButton& b, bool high
     auto r = b.getLocalBounds().toFloat().reduced (1.0f);
     const bool on = b.getToggleState();
     const bool danger = b.getProperties()["danger"];
-    // Allumé : contour + teinte de l'accent (l'orange plein est réservé à l'action principale) ; BYPASS reste plein rouge
+
+    // Petite case à cocher discrète (ex. + ORIGINAL SOUND)
+    if (b.getProperties()["check"])
+    {
+        auto box = r.removeFromLeft (r.getHeight()).withSizeKeepingCentre (14.0f, 14.0f);
+        g.setColour (on ? SwellColours::accent() : (highlighted ? SwellColours::dim : SwellColours::track.brighter (0.3f)));
+        g.drawRoundedRectangle (box, 3.0f, 1.4f);
+        if (on)
+        {
+            Path tick;
+            tick.startNewSubPath (box.getX() + 3.0f, box.getCentreY());
+            tick.lineTo (box.getX() + 6.0f, box.getBottom() - 3.5f);
+            tick.lineTo (box.getRight() - 3.0f, box.getY() + 3.5f);
+            g.strokePath (tick, PathStrokeType (1.8f, PathStrokeType::curved, PathStrokeType::rounded));
+        }
+        g.setColour (on || highlighted ? SwellColours::text : SwellColours::label);
+        g.setFont (FontOptions (10.5f, Font::bold));
+        g.drawText (b.getButtonText(), r.withTrimmedLeft (2.0f), Justification::centredLeft);
+        return;
+    }
+
+    // Allumé : simple contour + texte en couleur d'accent (l'orange plein est réservé à DRAG TO PLAYLIST) ;
+    // BYPASS reste plein rouge
     const auto onColour = danger ? SwellColours::rec : SwellColours::accent();
-    g.setColour (on ? (danger ? onColour : SwellColours::panel.overlaidWith (onColour.withAlpha (0.16f)))
-                    : SwellColours::panel);
+    g.setColour (on && danger ? onColour : SwellColours::panel);
     g.fillRoundedRectangle (r, 6.0f);
     g.setColour (on ? onColour : (highlighted ? SwellColours::dim : SwellColours::track));
     g.drawRoundedRectangle (r, 6.0f, 1.2f);
     g.setColour (on ? (danger ? SwellColours::bg : onColour) : SwellColours::text);
-    g.setFont (FontOptions (12.5f, Font::bold));
+    g.setFont (FontOptions (11.5f, Font::bold));
     g.drawText (b.getButtonText(), r, Justification::centred);
 }
 
@@ -196,16 +217,22 @@ void IconButton::paintButton (Graphics& g, bool highlighted, bool down)
 {
     const auto bg = findColour (TextButton::buttonColourId);
     getLookAndFeel().drawButtonBackground (g, *this, bg, highlighted, down);
+    if (active)
+    {
+        g.setColour (SwellColours::accent());
+        g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (1.0f), 6.0f, 1.4f);
+    }
 
-    // Fond plein (capture en cours, lecture) : icône et texte en sombre
+    // Fond plein (capture en cours) : icône et texte en sombre ; actif (lecture) : icône en couleur d'accent
     const bool filled = bg != SwellColours::panel;
     const float alpha = isEnabled() ? 1.0f : 0.4f;
-    const auto ink = (filled ? SwellColours::bg : SwellColours::text).withMultipliedAlpha (alpha);
+    const auto ink = (filled ? SwellColours::bg : (active ? SwellColours::accent() : SwellColours::text)).withMultipliedAlpha (alpha);
 
     auto r = getLocalBounds().toFloat().reduced (4.0f, 6.0f);
-    auto labelArea = r.removeFromBottom (13.0f);
-    const auto box = r.withSizeKeepingCentre (22.0f, 22.0f);
-    const auto toBox = AffineTransform::scale (22.0f / 24.0f).translated (box.getX(), box.getY());
+    auto labelArea = compact ? Rectangle<float>() : r.removeFromBottom (13.0f);
+    const float iconSize = compact ? 18.0f : 22.0f;
+    const auto box = r.withSizeKeepingCentre (iconSize, iconSize);
+    const auto toBox = AffineTransform::scale (iconSize / 24.0f).translated (box.getX(), box.getY());
     const PathStrokeType stroke (2.0f, PathStrokeType::curved, PathStrokeType::rounded);
 
     switch (icon)
@@ -213,8 +240,8 @@ void IconButton::paintButton (Graphics& g, bool highlighted, bool down)
         case Icon::record:
             g.setColour (ink);
             g.drawEllipse (box.reduced (2.0f), 2.0f);
-            g.setColour ((filled ? SwellColours::bg : SwellColours::accent()).withMultipliedAlpha (alpha));
-            g.fillEllipse (box.reduced (7.0f));
+            g.setColour ((filled ? SwellColours::bg : SwellColours::rec).withMultipliedAlpha (alpha));
+            g.fillEllipse (box.reduced (iconSize * 0.32f));
             break;
         case Icon::load:
         {
@@ -228,7 +255,7 @@ void IconButton::paintButton (Graphics& g, bool highlighted, bool down)
         {
             g.setColour (ink);
             if (getButtonText() == "STOP")
-                g.fillRoundedRectangle (box.reduced (5.0f), 2.0f);
+                g.fillRoundedRectangle (box.reduced (iconSize * 0.23f), 2.0f);
             else
             {
                 auto p = Drawable::parseSVGPath ("M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z");
@@ -247,9 +274,12 @@ void IconButton::paintButton (Graphics& g, bool highlighted, bool down)
         }
     }
 
-    g.setColour (ink);
-    g.setFont (FontOptions (10.0f, Font::bold));
-    g.drawText (getButtonText(), labelArea, Justification::centred);
+    if (! compact)
+    {
+        g.setColour (ink);
+        g.setFont (FontOptions (10.0f, Font::bold));
+        g.drawText (getButtonText(), labelArea, Justification::centred);
+    }
 }
 
 // ============================================================ Courbe temps réel + vumètre
@@ -428,8 +458,9 @@ void DragTile::paint (Graphics& g)
                           inner.withTrimmedBottom (-16.0f).toNearestInt(), Justification::centred, 2);
     }
 
-    g.setColour (highlight || ready ? SwellColours::accent() : SwellColours::track);
-    g.drawRoundedRectangle (r, 8.0f, highlight || hover ? 2.4f : (ready ? 1.8f : 1.2f));
+    g.setColour (highlight || hover ? SwellColours::accent()
+                                    : (ready ? SwellColours::accent().withAlpha (0.45f) : SwellColours::track));
+    g.drawRoundedRectangle (r, 8.0f, highlight || hover ? 2.2f : 1.3f);
 }
 
 void DragTile::mouseDown (const MouseEvent&) { dragging = false; }
@@ -508,21 +539,21 @@ HelpOverlay::HelpOverlay() : OverlayPanel (fr ("HELP  —  How to use SWELL"))
         "  FOLDER opens the folder where every clip is saved (Music/Swell Reverse).\n\n"
 
         "RISE LENGTH\n"
-        "  SYNC + division: length locked to the tempo (1/16 to 2 bars).\n"
-        "  LENGTH: free length in seconds (when SYNC is off).\n\n"
+        "  SYNC off: LENGTH sets a free length in seconds.\n"
+        "  SYNC on: the same LENGTH knob picks a note value locked to the tempo (1/16 to 2 bars).\n\n"
 
         "SOUND\n"
         "  SHAPE: 0 % = long, gradual rise, 100 % = late rise that \"sucks in\".\n"
         "  TONE: dark ↔ bright.\n"
         "  LOW CUT: removes the low end of the reverb to keep the mix clean.\n"
         "  WIDTH: mono ↔ wide stereo.\n"
-        "  GAP: short silence between the end of the rise and the transient.\n\n"
-
-        "GATE (optional)\n"
+        "\n"
+        "ADVANCED (click ADVANCED to swap the bottom row)\n"
+        "  GAP: short silence between the end of the rise and the transient.\n"
         "  GATE: chops the rise in rhythm (1/4 to 1/32, triplets).  Off = continuous rise.\n"
-        "  GATE DEPTH: how hard it chops.\n"
+        "  GATE DEPTH: how hard it chops (shown when the gate is on).\n"
         "  GATE SMOOTH: 0 % = hard cut (stutter), 100 % = soft \"wou-wou\" wave.\n"
-        "  The gate is always open at the transient.\n\n"
+        "  The gate is always open at the transient.  When the gate is on, the ADVANCED button says so.\n\n"
 
         "OUTPUT\n"
         "  MIX: 0 % = dry only, 50 % = dry + full reverb, 100 % = reverb only (great on a send).\n"
@@ -536,7 +567,7 @@ HelpOverlay::HelpOverlay() : OverlayPanel (fr ("HELP  —  How to use SWELL"))
         "  • Double-click a knob = default value.  Cmd + drag = fine adjustment.\n"
         "  • Hover any element to see its tooltip (can be turned off in SETTINGS).\n"
         "  • In real time, if you change the length or the tempo, restart playback so your DAW realigns.\n"
-        "  • SETTINGS: interface colour, window size, tooltips.\n"));
+        "  • SETTINGS: interface colour, window size, tooltips, and the latency reported to your DAW.\n"));
 
     // Titres en gras et en couleur, texte normal ensuite
     for (auto& line : StringArray::fromLines (help))
@@ -655,9 +686,12 @@ void SettingsOverlay::paint (Graphics& g)
             g.drawRoundedRectangle (scaleButtons[i]->getBounds().toFloat().expanded (2.0f), 8.0f, 2.0f);
         }
 
-    // signature
-    auto sig = getContentArea().removeFromBottom (20);
+    // signature (+ latence / durée / tempo juste au-dessus)
+    auto bottom = getContentArea().removeFromBottom (44);
+    auto sig = bottom.removeFromBottom (20);
     g.setFont (FontOptions (12.0f));
+    g.setColour (SwellColours::label);
+    g.drawText (info, bottom.removeFromTop (20), Justification::centredLeft);
     g.setColour (SwellColours::dim);
     g.drawText ("SWELL Reverse Reverb  v" + String (SWELL_VERSION) + "  |  by @sevyondatracks", sig, Justification::centredLeft);
 }
@@ -670,7 +704,9 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
 
     addAndMakeVisible (display);
 
-    setupKnob (length,     ParamID::length,     "LENGTH",      "Free rise length (when SYNC is off).");
+    setupKnob (length,     ParamID::length,     "LENGTH",      "Free rise length in seconds (SYNC off).");
+    setupKnob (division,   ParamID::division,   "LENGTH",      "Rise length as a note value, locked to your DAW tempo (SYNC on).");
+    division.label.setVisible (false);   // le titre LENGTH est commun aux deux boutons
     setupKnob (shape,      ParamID::shape,      "SHAPE",       "Rise shape: gradual (low) or a late rise that sucks in (high).");
     setupKnob (tone,       ParamID::tone,       "TONE",        fr ("Reverb colour: dark ↔ bright."));
     setupKnob (lowCut,     ParamID::lowCut,     "LOW CUT",     "Removes the low end of the reverb to keep the mix clean.");
@@ -711,10 +747,16 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
     settingsButton.setTooltip ("Colour, window size, tooltips.");
     addAndMakeVisible (settingsButton);
 
-    // Gate
+    // Rangée ADVANCED : Gap + Gate (menu + depth + smooth) regroupés
+    advancedButton.setTooltip ("Gap and rhythmic gate: swaps the bottom row.");
+    advancedButton.setClickingTogglesState (true);
+    advancedButton.onClick = [this] { setAdvancedOpen (advancedButton.getToggleState()); };
+    addAndMakeVisible (advancedButton);
+
     gateLabel.setText ("GATE", dontSendNotification);
-    gateLabel.setFont (FontOptions (12.0f, Font::bold));
-    gateLabel.setJustificationType (Justification::centredRight);
+    gateLabel.setFont (FontOptions (10.5f, Font::bold));
+    gateLabel.setColour (Label::textColourId, SwellColours::label);
+    gateLabel.setJustificationType (Justification::centred);
     addAndMakeVisible (gateLabel);
     if (auto* choice = dynamic_cast<AudioParameterChoice*> (p.apvts.getParameter (ParamID::gate)))
         gateBox.addItemList (choice->choices, 1);
@@ -736,17 +778,6 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
     syncAttachment = std::make_unique<AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, ParamID::sync, syncButton);
     syncButton.onStateChange = [this] { updateEnablement(); };
 
-    if (auto* choice = dynamic_cast<AudioParameterChoice*> (p.apvts.getParameter (ParamID::division)))
-        divisionBox.addItemList (choice->choices, 1);
-    divisionBox.setJustificationType (Justification::centred);
-    divisionBox.setTooltip ("Rise length as a note value.");
-    addAndMakeVisible (divisionBox);
-    divisionAttachment = std::make_unique<AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, ParamID::division, divisionBox);
-
-    infoLabel.setJustificationType (Justification::centredRight);
-    infoLabel.setFont (FontOptions (12.0f));
-    addAndMakeVisible (infoLabel);
-
     // Render
     captureButton.onClick = [this] { proc.toggleCapture(); };
     captureButton.setTooltip ("Arm the capture, then start playback: records the sound coming into Swell.");
@@ -761,6 +792,9 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
         f.revealToUser();
     };
     folderButton.setTooltip ("Opens the folder where clips are saved.");
+    for (auto* b : { &loadButton, &playButton, &folderButton })
+        b->setCompact (true);
+    withSourceButton.getProperties().set ("check", true);
     withSourceButton.setToggleState (proc.getPreviewWithSource(), dontSendNotification);
     withSourceButton.onClick = [this] { proc.setPreviewWithSource (withSourceButton.getToggleState()); };
     withSourceButton.setTooltip ("Preview: plays the original sound right after the rise.");
@@ -772,9 +806,8 @@ SwellMainView::SwellMainView (SwellAudioProcessor& p, SwellLookAndFeel& l)
     addAndMakeVisible (renderStatus);
 
     styleBigKnobs();
-    infoLabel.setColour (Label::textColourId, SwellColours::label);
     renderStatus.setColour (Label::textColourId, SwellColours::label);
-    updateEnablement();
+    setAdvancedOpen (false);
     display.refresh();
     setSize (designW, designH);
     startTimerHz (30);
@@ -808,31 +841,57 @@ void SwellMainView::setupKnob (Knob& k, const String& paramId, const String& nam
     k.slider.onValueChange = [this] { display.repaint(); };
 }
 
-// Les 3 grands boutons : titre plus gros en blanc, valeur en couleur d'accent
+// Les 3 grands boutons : titre plus gros, valeur en clair (l'arc garde la couleur d'accent)
 void SwellMainView::styleBigKnobs()
 {
-    for (auto* k : bigKnobs)
+    for (auto* k : { &length, &division, &shape, &mix })
     {
         k->label.setFont (FontOptions (13.0f, Font::bold));
         k->label.setColour (Label::textColourId, SwellColours::text);
         k->slider.setTextBoxStyle (Slider::TextBoxBelow, false, 130, 22);
-        k->slider.setColour (Slider::textBoxTextColourId, SwellColours::accent());
+        k->slider.setColour (Slider::textBoxTextColourId, SwellColours::text);
     }
+}
+
+void SwellMainView::setAdvancedOpen (bool open)
+{
+    advancedOpen = open;
+    advancedButton.setToggleState (open, dontSendNotification);
+    updateEnablement();
 }
 
 void SwellMainView::updateEnablement()
 {
+    // SYNC : le gros bouton LENGTH affiche la division (1/2, 1/4...) au même endroit
     const bool sync = syncButton.getToggleState();
-    length.slider.setEnabled (! sync);
-    length.label.setAlpha (sync ? 0.4f : 1.0f);
-    divisionBox.setEnabled (sync);
+    length.slider.setVisible (! sync);
+    division.slider.setVisible (sync);
 
+    // Rangée du bas : 4 réglages de son, ou Gap + Gate quand ADVANCED est ouvert
     const bool gateOn = gateBox.getSelectedItemIndex() > 0;
-    for (auto* k : { &gateDepth, &gateSmooth })
+    for (auto* k : soundKnobs)
     {
-        k->slider.setEnabled (gateOn);
-        k->label.setAlpha (gateOn ? 1.0f : 0.4f);
+        k->slider.setVisible (! advancedOpen);
+        k->label.setVisible (! advancedOpen);
     }
+    gap.slider.setVisible (advancedOpen);
+    gap.label.setVisible (advancedOpen);
+    gateLabel.setVisible (advancedOpen);
+    gateBox.setVisible (advancedOpen);
+    for (auto* k : { &gateDepth, &gateSmooth })   // seulement si le gate est actif
+    {
+        k->slider.setVisible (advancedOpen && gateOn);
+        k->label.setVisible (advancedOpen && gateOn);
+    }
+
+    // Le bouton signale le gate actif même quand la rangée est fermée
+    const String advText = (! advancedOpen && gateOn) ? fr ("ADVANCED  ·  GATE ") + gateBox.getText() : String ("ADVANCED");
+    if (advancedButton.getButtonText() != advText)
+    {
+        advancedButton.setButtonText (advText);
+        resized();   // la largeur du bouton suit son texte
+    }
+    repaint (gateHintArea);
 }
 
 void SwellMainView::refreshPresetList()
@@ -907,6 +966,8 @@ void SwellMainView::showSettings()
     settings = std::make_unique<SettingsOverlay>();
     auto& pf = SwellSettings::file();
     settings->setCurrent (SwellColours::accent(), (float) pf.getDoubleValue ("uiScale", 1.0), pf.getBoolValue ("tooltips", true));
+    settings->setInfo ("LATENCY " + String (roundToInt (proc.getLatencyMs())) + fr (" ms (reported to your DAW)  ·  Rise ")
+                       + String (proc.getLengthSeconds(), 2) + fr (" s  ·  ") + String (proc.getHostBpm(), 1) + " BPM");
     settings->onAccent   = [this] (Colour c) { applyAccent (c); };
     settings->onScale    = [this] (float s) { if (onScaleChange) onScaleChange (s); };
     settings->onTooltips = [this] (bool b) { if (onTooltipsChange) onTooltipsChange (b); };
@@ -955,7 +1016,7 @@ void SwellMainView::filesDropped (const StringArray& files, int, int)
 void SwellMainView::timerCallback()
 {
     // Outil de dev pour les captures du README :
-    // SWELL_SNAPSHOT=<fichier.png> [SWELL_SNAPSHOT_SAMPLE=<son>] [SWELL_SNAPSHOT_OVERLAY=help|settings]
+    // SWELL_SNAPSHOT=<fichier.png> [SWELL_SNAPSHOT_SAMPLE=<son>] [SWELL_SNAPSHOT_OVERLAY=help|settings|advanced]
     if (! snapshotChecked)
     {
         snapshotChecked = true;
@@ -968,6 +1029,7 @@ void SwellMainView::timerCallback()
             const auto overlay = SystemStats::getEnvironmentVariable ("SWELL_SNAPSHOT_OVERLAY", {});
             if (overlay == "help")     showHelp();
             if (overlay == "settings") showSettings();
+            if (overlay == "advanced") setAdvancedOpen (true);
             Timer::callAfterDelay (3000, [sp = Component::SafePointer<SwellMainView> (this), out]
             {
                 if (sp == nullptr) return;
@@ -1013,8 +1075,7 @@ void SwellMainView::timerCallback()
     // Pré-écoute
     const bool playing = proc.isPreviewPlaying();
     playButton.setButtonText (playing ? "STOP" : "PLAY");
-    playButton.setColour (TextButton::buttonColourId, playing ? SwellColours::accent() : SwellColours::panel);
-    playButton.setColour (TextButton::textColourOffId, playing ? SwellColours::bg : SwellColours::text);
+    playButton.setActive (playing);
     tile.setPlayhead (playing ? proc.getPreviewProgress() : -1.0f, proc.getPreviewClipFraction());
 
     // Capture
@@ -1037,14 +1098,7 @@ void SwellMainView::timerCallback()
     }
 
     if (blink % 6 == 0)
-    {
-        String info;
-        info << "Rise " << String (proc.getLengthSeconds(), 2) << " s";
-        if (syncButton.getToggleState() || gateBox.getSelectedItemIndex() > 0)
-            info << "  |  " << String (proc.getHostBpm(), 1) << " BPM";
-        info << "  |  Latency " << String (roundToInt (proc.getLatencyMs())) << " ms";
-        infoLabel.setText (info, dontSendNotification);
-    }
+        updateEnablement();   // filet de sécurité (preset chargé, automation)
 }
 
 void SwellMainView::paint (Graphics& g)
@@ -1072,9 +1126,18 @@ void SwellMainView::paint (Graphics& g)
     {
         g.setColour (SwellColours::panel);
         g.fillRoundedRectangle (renderPanelArea.toFloat(), 10.0f);
-        g.setColour (SwellColours::accent());
+        g.setColour (SwellColours::label);
         g.setFont (FontOptions (12.0f, Font::bold));
         g.drawText (fr ("RENDER  →  PLAYLIST"), renderPanelArea.reduced (14, 8).removeFromTop (16), Justification::centredLeft);
+    }
+
+    // Rangée ADVANCED avec le gate sur Off : on explique où sont passés Depth / Smooth
+    if (advancedOpen && gateBox.getSelectedItemIndex() <= 0 && ! gateHintArea.isEmpty())
+    {
+        g.setColour (SwellColours::dim);
+        g.setFont (FontOptions (12.0f));
+        g.drawFittedText (fr ("Pick a GATE rate to chop the rise:\nDEPTH and SMOOTH appear here."),
+                          gateHintArea, Justification::centred, 2);
     }
 
     // Séparation entre les grands boutons et les petits
@@ -1107,6 +1170,30 @@ void SwellMainView::paint (Graphics& g)
     }
 }
 
+void SwellMainView::layoutSmallRow()
+{
+    auto row = smallRowArea;
+    const int sw = row.getWidth() / 4;
+    auto place = [] (Knob& k, Rectangle<int> cell)
+    {
+        k.label.setBounds (cell.removeFromTop (14));
+        k.slider.setBounds (cell.reduced (8, 0));
+    };
+
+    auto r = row;
+    for (auto* k : soundKnobs)
+        place (*k, r.removeFromLeft (sw));
+
+    r = row;
+    place (gap, r.removeFromLeft (sw));
+    auto gateCell = r.removeFromLeft (sw);
+    gateLabel.setBounds (gateCell.removeFromTop (14));
+    gateBox.setBounds (gateCell.withSizeKeepingCentre (gateCell.getWidth() - 30, 30).translated (0, -10));
+    gateHintArea = r.reduced (10, 14);
+    place (gateDepth, r.removeFromLeft (sw));
+    place (gateSmooth, r);
+}
+
 void SwellMainView::resized()
 {
     auto area = getLocalBounds().reduced (20, 0);
@@ -1126,25 +1213,24 @@ void SwellMainView::resized()
     pr.removeFromLeft (4);
     presetBox.setBounds (pr);
 
-    // Barre : gate à gauche, bypass + sync à droite
-    auto bar = area.removeFromTop (32);
-    gateLabel.setBounds (bar.removeFromLeft (44));
-    bar.removeFromLeft (8);
-    gateBox.setBounds (bar.removeFromLeft (110));
-    auto right = bar.removeFromRight (300);
-    bypassButton.setBounds (right.removeFromLeft (80));
-    right.removeFromLeft (10);
-    syncButton.setBounds (right.removeFromLeft (76));
-    right.removeFromLeft (10);
-    divisionBox.setBounds (right);
+    // Barre : ADVANCED à gauche, bypass + sync à droite
+    // (boutons plus compacts : 26 px de haut, largeur ajustée au texte)
+    auto bar = area.removeFromTop (32).withSizeKeepingCentre (area.getWidth(), 26);
+    const int advW = roundToInt (GlyphArrangement::getStringWidth (Font (FontOptions (11.5f, Font::bold)),
+                                                                   advancedButton.getButtonText())) + 30;
+    advancedButton.setBounds (bar.removeFromLeft (advW));
+    auto right = bar.removeFromRight (64 + 8 + 74);
+    bypassButton.setBounds (right.removeFromLeft (74));
+    right.removeFromLeft (8);
+    syncButton.setBounds (right);
 
     area.removeFromTop (10);
     display.setBounds (area.removeFromTop (118));
-    infoLabel.setBounds (area.removeFromTop (22).withTrimmedRight (4));
+    area.removeFromTop (14);
 
     // Pied de page et panneau Render (depuis le bas)
     footerArea = area.removeFromBottom (32);
-    renderPanelArea = area.removeFromBottom (176);
+    renderPanelArea = area.removeFromBottom (156);
     area.removeFromBottom (10);
 
     {
@@ -1152,22 +1238,26 @@ void SwellMainView::resized()
         rp.removeFromTop (22);
         renderStatus.setBounds (rp.removeFromBottom (20));
         rp.removeFromBottom (4);
-        auto col = rp.removeFromLeft (248);
-        // 4 boutons icône sur une ligne, + ORIGINAL SOUND en dessous
-        withSourceButton.setBounds (col.removeFromBottom (30));
-        col.removeFromBottom (6);
-        const int bw = (col.getWidth() - 18) / 4;
-        for (auto* b : { &captureButton, &loadButton, &playButton, &folderButton })
+        // CAPTURE en grand, LOAD / PLAY / FOLDER en petites icônes, + ORIGINAL SOUND en case à cocher
+        auto col = rp.removeFromLeft (262);
+        captureButton.setBounds (col.removeFromLeft (112));
+        col.removeFromLeft (10);
+        auto stack = col.withSizeKeepingCentre (col.getWidth(), 38 + 10 + 24);
+        auto icons = stack.removeFromTop (38);
+        const int iw = (icons.getWidth() - 12) / 3;
+        for (auto* b : { &loadButton, &playButton, &folderButton })
         {
-            b->setBounds (col.removeFromLeft (bw));
-            col.removeFromLeft (6);
+            b->setBounds (icons.removeFromLeft (iw));
+            icons.removeFromLeft (6);
         }
+        stack.removeFromTop (10);
+        withSourceButton.setBounds (stack);
         rp.removeFromLeft (12);
         tile.setBounds (rp);
     }
 
     // Les 3 réglages principaux en grand...
-    auto smallRow = area.removeFromBottom (92);
+    smallRowArea = area.removeFromBottom (92).withSizeKeepingCentre (620, 92);
     knobDivider = area.removeFromBottom (10).reduced (10, 0);
     auto bigRow = area.withSizeKeepingCentre (600, area.getHeight());
     const int bw = bigRow.getWidth() / 3;
@@ -1175,17 +1265,16 @@ void SwellMainView::resized()
     {
         auto cell = bigRow.removeFromLeft (bw);
         k->label.setBounds (cell.removeFromTop (18));
-        k->slider.setBounds (cell.withSizeKeepingCentre (jmin (cell.getHeight() - 22, bw), cell.getHeight()).reduced (0, 2));
+        auto knobArea = cell.withSizeKeepingCentre (jmin (cell.getHeight() - 22, bw), cell.getHeight()).reduced (0, 2);
+        // SHAPE au centre en grand, LENGTH et MIX un peu plus petits (valeurs alignées en bas)
+        if (k != &shape)
+            knobArea = knobArea.withSizeKeepingCentre (roundToInt (knobArea.getWidth() * 0.62f), knobArea.getHeight());
+        k->slider.setBounds (knobArea);
     }
+    division.slider.setBounds (length.slider.getBounds());
 
-    // ...et les 7 autres en petit en dessous
-    const int sw = smallRow.getWidth() / 7;
-    for (auto* k : smallKnobs)
-    {
-        auto cell = smallRow.removeFromLeft (sw);
-        k->label.setBounds (cell.removeFromTop (14));
-        k->slider.setBounds (cell.reduced (8, 0));
-    }
+    // ...et 4 petits en dessous (son, ou Gap + Gate quand ADVANCED est ouvert)
+    layoutSmallRow();
 
     if (help != nullptr)     help->setBounds (getLocalBounds());
     if (settings != nullptr) settings->setBounds (getLocalBounds());

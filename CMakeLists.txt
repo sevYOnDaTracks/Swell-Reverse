@@ -79,10 +79,12 @@ target_link_libraries(SwellVerb
 option(SWELL_BUILD_TESTS "Build offline render test" OFF)
 if(SWELL_BUILD_TESTS)
     juce_add_console_app(SwellTest PRODUCT_NAME "SwellTest")
-    target_sources(SwellTest PRIVATE Tests/RenderTest.cpp ${SWELL_SOURCES})
+    target_sources(SwellTest PRIVATE Tests/RenderTest.cpp ${SWELL_SOURCES} Source/Licence/SwellLicence.cpp)
     target_compile_definitions(SwellTest PRIVATE ${SWELL_DEFS} JUCE_MODAL_LOOPS_PERMITTED=1)
     target_link_libraries(SwellTest
         PRIVATE
+            monocypher
+            juce::juce_cryptography
             juce::juce_audio_utils
             juce::juce_dsp
             SwellAssets

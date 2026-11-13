@@ -23,22 +23,24 @@ la montée arrive donc *avant* la note, en temps réel, sur n'importe quelle pis
 
 | Bouton | Rôle |
 |---|---|
-| **SYNC + division** | Durée de la montée calée sur le tempo (1/16 → 2 mesures). Par défaut 1/2 |
-| **LENGTH** | Durée libre en secondes (0,1 → 4 s), quand SYNC est coupé |
+| **LENGTH** | Durée de la montée. SYNC coupé : en secondes (0,1 → 4 s). SYNC allumé : le même bouton choisit une valeur de note calée sur le tempo (1/16 → 2 mesures, 1/2 par défaut) |
 | **SHAPE** | 0 % = montée longue et progressive, 100 % = montée tardive qui "aspire" d'un coup |
 | **TONE** | Sombre ↔ brillant |
 | **LOW CUT** | Coupe le bas de la reverb (garde les basses propres) |
 | **WIDTH** | Mono ↔ stéréo large |
-| **GAP** | Petit silence entre la fin de la montée et le transient (0–500 ms) |
 | **MIX** | 0 % = dry, 50 % = dry + reverb à fond, 100 % = reverb seule |
 | **OUTPUT** | Volume de sortie |
 
-## Gate rythmique (optionnel)
+## ADVANCED : Gap + gate rythmique (optionnel)
+
+Le bouton **ADVANCED** (en haut à gauche) remplace la rangée du bas par ces réglages.
+Quand le gate est actif, le bouton l'indique même fermé (ex. « ADVANCED · GATE 1/16 »).
 
 | Réglage | Rôle |
 |---|---|
+| **GAP** | Petit silence entre la fin de la montée et le transient (0–500 ms) |
 | **GATE** | Off, 1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32 : hache la montée en rythme ("wou-wou-wou") |
-| **GATE DEPTH** | Intensité du hachage (0 % = aucun effet) |
+| **GATE DEPTH** | Intensité du hachage (0 % = aucun effet). Visible quand le gate est actif |
 | **GATE SMOOTH** | 0 % = découpe sèche (stutter), 100 % = vague douce |
 
 Le gate est calé sur le tempo et toujours **ouvert pile au transient**.
